@@ -66,25 +66,21 @@ class RNNLM(Model):
         self.pwhy.init([vocab_size, hidden_size], I.XavierUniform())
         self.pby.init([vocab_size], I.Constant(0))
 
-    def reset(self):
-        self.lstm.reset()
-
     def forward(self, word):
-        lookup = F.parameter(self.plookup)
-        why = F.parameter(self.pwhy)
-        by = F.parameter(self.pby)
-
-        x = F.pick(lookup, word, 1)
+        x = F.pick(self.lookup, word, 1)
         h = self.lstm.forward(x)
-        return why @ h + by
+        return self.why @ h + self.by
 
     def loss(self, inputs):
-        self.reset()
+        self.lookup = F.parameter(self.plookup)
+        self.lstm.reset()
+        self.why = F.parameter(self.pwhy)
+        self.by = F.parameter(self.pby)
 
         losses = []
         for i in range(len(inputs)-1):
-            outputs = self.forward(inputs[i])
-            losses.append(F.softmax_cross_entropy(outputs, inputs[i+1], 0))
+            output = self.forward(inputs[i])
+            losses.append(F.softmax_cross_entropy(output, inputs[i+1], 0))
         return F.batch.mean(F.sum(losses))
 
 def parse_args():
