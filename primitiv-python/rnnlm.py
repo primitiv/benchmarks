@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
+import time
+startup_time = time.time()
+
 import sys
 import random
 import math
@@ -16,7 +19,7 @@ from primitiv import optimizers as O
 
 TRAIN_FILE = "../data/text/ptb.train.txt"
 TEST_FILE  = "../data/text/ptb.test.txt"
-MAX_EPOCH = 100
+MAX_EPOCH = 30
 
 class LSTM(Model):
     def __init__(self):
@@ -85,10 +88,8 @@ class RNNLM(Model):
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument('--use-gpu', action="store_true", default=False,
-                        help="use GPU device (default: False)")
-    parser.add_argument('--gpu-device', metavar='INT', type=int, default=0,
-                        help='GPU device ID to be used (default: %(default)d)')
+    parser.add_argument('--gpu', metavar="INT", type=int, default=-1,
+                        help="GPU device ID (default: %(default)d)")
     parser.add_argument('embed', type=int, help="embedding layer size")
     parser.add_argument('hidden', type=int, help="hidden layer size")
     parser.add_argument("minibatch", type=int, help="minibatch size")
@@ -145,8 +146,8 @@ if __name__ == '__main__':
     num_train_labels = count_labels(train_corpus)
     num_test_labels = count_labels(test_corpus)
 
-    if args.use_gpu:
-        dev = D.CUDA(args.gpu_device)
+    if args.gpu >= 0:
+        dev = D.CUDA(args.gpu)
     else:
         dev = D.Naive()
     Device.set_default(dev)
@@ -163,10 +164,14 @@ if __name__ == '__main__':
     train_ids = list(range(num_train_sents))
     test_ids = list(range(num_test_sents))
 
+    print("startup time=%r" % (time.time() - startup_time))
+
     for epoch in range(MAX_EPOCH):
-        random.shuffle(train_ids)
+
+        train_time = time.time()
 
         train_loss = 0
+        random.shuffle(train_ids)
         for ofs in range(0, num_train_sents, args.minibatch):
             batch_ids = train_ids[ofs : min(ofs+args.minibatch, num_train_sents)]
             batch = make_batch(train_corpus, batch_ids, eos_id)
@@ -180,10 +185,13 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.update()
 
-            print("\r%d/%d" % (ofs, num_train_sents), end="", file=sys.stderr)
-            sys.stderr.flush()
-        print("")
+        #     print("\r%d/%d" % (ofs, num_train_sents), end="", file=sys.stderr)
+        #     sys.stderr.flush()
+        # print("")
         train_ppl = math.exp(train_loss / num_train_labels)
+
+        train_time = time.time() - train_time
+        test_time = time.time()
 
         test_loss = 0
         for ofs in range(0, num_test_sents, args.minibatch):
@@ -195,10 +203,10 @@ if __name__ == '__main__':
             loss = rnnlm.loss(batch)
             test_loss += loss.to_float() * len(batch_ids)
 
-            print("\r%d/%d" % (ofs, num_test_sents), end="", file=sys.stderr)
-            sys.stderr.flush()
-        print("")
+        #     print("\r%d/%d" % (ofs, num_test_sents), end="", file=sys.stderr)
+        #     sys.stderr.flush()
+        # print("")
         test_ppl = math.exp(test_loss / num_test_labels)
 
-        print("epoch = {}/{}, train ppl = {}, test ppl = {}".format(
-            epoch, MAX_EPOCH, train_ppl, test_ppl))
+        print("epoch=%d, time = %.4f, ppl = %.4f, word_per_sec = %.4f" % (
+            epoch+1, train_time, test_ppl, num_train_labels / train_time))
