@@ -167,31 +167,22 @@ if __name__ == '__main__':
     print("startup time=%r" % (time.time() - startup_time))
 
     for epoch in range(MAX_EPOCH):
-
         train_time = time.time()
 
-        train_loss = 0
+        # train_loss = 0
         random.shuffle(train_ids)
         for ofs in range(0, num_train_sents, args.minibatch):
             batch_ids = train_ids[ofs : min(ofs+args.minibatch, num_train_sents)]
             batch = make_batch(train_corpus, batch_ids, eos_id)
 
             g.clear()
-
             loss = rnnlm.loss(batch)
-            train_loss += loss.to_float() * len(batch_ids)
-
+            # train_loss += loss.to_float() * len(batch_ids)
             optimizer.reset_gradients()
             loss.backward()
             optimizer.update()
-
-        #     print("\r%d/%d" % (ofs, num_train_sents), end="", file=sys.stderr)
-        #     sys.stderr.flush()
-        # print("")
-        train_ppl = math.exp(train_loss / num_train_labels)
-
+        # train_ppl = math.exp(train_loss / num_train_labels)
         train_time = time.time() - train_time
-        test_time = time.time()
 
         test_loss = 0
         for ofs in range(0, num_test_sents, args.minibatch):
@@ -199,14 +190,9 @@ if __name__ == '__main__':
             batch = make_batch(test_corpus, batch_ids, eos_id)
 
             g.clear()
-
             loss = rnnlm.loss(batch)
             test_loss += loss.to_float() * len(batch_ids)
-
-        #     print("\r%d/%d" % (ofs, num_test_sents), end="", file=sys.stderr)
-        #     sys.stderr.flush()
-        # print("")
         test_ppl = math.exp(test_loss / num_test_labels)
 
-        print("epoch=%d, time = %.4f, ppl = %.4f, word_per_sec = %.4f" % (
+        print("epoch=%d, time=%.4f, ppl=%.4f, word_per_sec=%.4f" % (
             epoch+1, train_time, test_ppl, num_train_labels / train_time))
