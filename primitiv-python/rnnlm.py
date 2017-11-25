@@ -71,7 +71,7 @@ class RNNLM(Model):
 
     def forward(self, word):
         x = F.pick(self.lookup, word, 1)
-        h = self.lstm.forward(x)
+        h = F.sigmoid(self.lstm.forward(x))
         return self.why @ h + self.by
 
     def loss(self, inputs):

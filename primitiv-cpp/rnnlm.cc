@@ -78,7 +78,7 @@ public:
 
 	Var forward(const vector<unsigned> &input) {
 		Var x = F::pick(lookup, input, 1);
-		Var h = lstm.forward(x);
+		Var h = F::sigmoid(lstm.forward(x));
 		return F::matmul(why, h) + by;
 	}
 
@@ -174,10 +174,15 @@ int main(int argc, char** argv) {
 
 	auto start = system_clock::now();
 
-	const int gpu_device = 0;
-	const int embed = 64;
-	const int hidden = 128;
-	const int minibatch = 64;
+	if (argc != 5) {
+		cerr << "Usage: " << argv[0];
+		cerr << " gpu_id embed_size hidden_size minibatch_size" << endl;
+		return 1;
+	}
+	const int gpu_device = atoi(argv[1]);
+	const int embed = atoi(argv[2]);
+	const int hidden = atoi(argv[3]);
+	const int minibatch = atoi(argv[4]);
 
 	auto vocab = make_vocab(TRAIN_FILE);
 	unsigned eos_id = vocab["<s>"];
@@ -189,8 +194,12 @@ int main(int argc, char** argv) {
 	const unsigned num_train_labels = count_labels(train_corpus);
 	const unsigned num_test_labels = count_labels(test_corpus);
 
-	devices::CUDA dev(gpu_device);
-	Device::set_default(dev);
+	static Device *dev;
+	if (gpu_device >= 0)
+		dev = new devices::CUDA(gpu_device);
+	else
+		dev = new devices::Naive();
+	Device::set_default(*dev);
 
 	Graph g;
 	Graph::set_default(g);
