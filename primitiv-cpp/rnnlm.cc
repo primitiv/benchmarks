@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include <unordered_map>
+#include <chrono>
 
 #include <primitiv/primitiv.h>
 #include <primitiv/primitiv_cuda.h>
@@ -14,6 +15,7 @@ using primitiv::optimizers::Adam;
 namespace F = primitiv::operators;
 using namespace primitiv;
 using namespace std;
+using namespace std::chrono;
 
 const string TRAIN_FILE = "../data/text/ptb.train.txt";
 const string TEST_FILE = "../data/text/ptb.test.txt";
@@ -170,7 +172,9 @@ vector<vector<unsigned>> make_batch(
 
 int main(int argc, char** argv) {
 
-	const int gpu_device = 1;
+	auto start = system_clock::now();
+
+	const int gpu_device = 0;
 	const int embed = 64;
 	const int hidden = 128;
 	const int minibatch = 64;
@@ -204,10 +208,17 @@ int main(int argc, char** argv) {
 	iota(begin(train_ids), end(train_ids), 0);
 	iota(begin(test_ids), end(test_ids), 0);
 
-	for (unsigned epoch = 0; epoch < MAX_EPOCH; epoch++) {
-		shuffle(begin(train_ids), end(train_ids), rng);
+	{
+		duration<float> fs = system_clock::now() - start;
+		float startup_time = duration_cast<milliseconds>(fs).count();
+		cout << "startup time=" << startup_time / 1000. << endl;
+	}
 
-		float train_loss = 0;
+	for (unsigned epoch = 0; epoch < MAX_EPOCH; epoch++) {
+		start = system_clock::now();
+
+		// float train_loss = 0;
+		shuffle(begin(train_ids), end(train_ids), rng);
 		for (unsigned ofs = 0; ofs < num_train_sents; ofs += minibatch) {
 			const vector<unsigned> batch_ids(
 					begin(train_ids) + ofs,
@@ -216,18 +227,16 @@ int main(int argc, char** argv) {
 			const auto batch = make_batch(train_corpus, batch_ids, eos_id);
 
 			g.clear();
-
 			const auto loss = rnnlm.loss(batch);
-			train_loss += loss.to_float() * batch_ids.size();
-
+			// train_loss += loss.to_float() * batch_ids.size();
 			optimizer.reset_gradients();
 			loss.backward();
 			optimizer.update();
-
-			cerr << "\r" << ofs << "/" << num_train_sents << flush;
 		}
-		cerr << endl;
-		const float train_ppl = exp(train_loss / num_train_labels);
+		// const float train_ppl = exp(train_loss / num_train_labels);
+
+		duration<float> fs = system_clock::now() - start;
+		float train_time = duration_cast<milliseconds>(fs).count() / 1000.;
 
 		float test_loss = 0;
 		for (unsigned ofs = 0; ofs < num_test_sents; ofs += minibatch) {
@@ -241,16 +250,13 @@ int main(int argc, char** argv) {
 
 			const auto loss = rnnlm.loss(batch);
 			test_loss += loss.to_float() * batch_ids.size();
-
-			cerr << "\r" << ofs << "/" << num_test_sents << flush;
 		}
-		cerr << endl;
 		const float test_ppl = exp(test_loss / num_test_labels);
 
-		cerr << "epoch = " << epoch + 1 << "/" << MAX_EPOCH << ", ";
-		cerr << "train ppl = " << train_ppl << ", ";
-		cerr << "test ppl = " << test_ppl << ", ";
-		cerr << endl;
+		cout << "epoch=" << epoch + 1 << ", ";
+		cout << "time=" << train_time << ", ";
+		cout << "ppl=" << test_ppl << ", ";
+		cout << "word_per_sec=" << num_train_labels / train_time << endl;
 	}
 
 	return 0;
