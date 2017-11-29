@@ -87,7 +87,7 @@ class EncoderDecoder(Model):
             x = F.pick(src_lookup, word, 1)
             self.src_lstm.forward(x)
 
-        self.trg_lookup = F.parameter(self.psrc_lookup)
+        self.trg_lookup = F.parameter(self.ptrg_lookup)
         self.w = F.parameter(self.pw)
         self.trg_lstm.reset()
 
@@ -207,13 +207,12 @@ if __name__ == "__main__":
         train_time = time.time()
 
         if epoch > 5:
-            new_scale = 0.5*optimizer.get_learning_rate_scaling()
+            new_scale = 0.5 * optimizer.get_learning_rate_scaling()
             optimizer.set_learning_rate_scaling(new_scale)
 
         random.shuffle(train_ids)
-        train_loss = 0
         for ofs in range(0, num_train_sents, batchsize):
-            if epoch > 5 and 0 < (ofs - num_train_sents/2) < batchsize:
+            if epoch > 5 and 0 <= (ofs - num_train_sents/2) < batchsize:
                 new_scale = 0.5*optimizer.get_learning_rate_scaling()
                 optimizer.set_learning_rate_scaling(new_scale)
 
@@ -224,7 +223,6 @@ if __name__ == "__main__":
             g.clear()
             encdec.encode(src_batch)
             loss = encdec.loss(trg_batch)
-            train_loss += loss.to_float() * len(batch_ids)
 
             optimizer.reset_gradients()
             loss.backward()
